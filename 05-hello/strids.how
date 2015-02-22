@@ -1,0 +1,7 @@
+// initialized global string identifiers and print lists
+ah = " Ah!";
+long = " long";
+{
+  print "hello", ah, ah, ah;
+  print "A", long, long, long, " time ago", " ...";
+}

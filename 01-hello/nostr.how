@@ -1,0 +1,4 @@
+// missing string argument
+{
+  print ;
+}

@@ -1,0 +1,33 @@
+%{
+#include <stdio.h>
+#include "node.h"
+#include "y.tab.h"
+static int lbl;
+extern FILE *yyout;
+static int isSTR(Node *p) { return p->info == STR ? 1 : MAX_COST; }
+static int isINT(Node *p) { return p->info == INT ? 1 : MAX_COST; }
+%}
+%include "y.tab.h"
+%term ASSIGN='=' ADD='+'
+%%
+prog: PROG(decls,instrs)    { fprintf(yyout, "\tmov rax, 0\n\tret\n"); } 
+decls: NIL                  { fprintf(yyout, "extern _println\nextern _prints\nextern _printi\n"); }
+decls: DECLS(decls, decl)
+decl: ASSIGN(ID,STR)        { fprintf(yyout, "segment .text\nalign 8\n$%s: db '%s', 0\n", p->SUB(0)->value.s, p->SUB(1)->value.s); } 
+decl: ASSIGN(ID,INT)        { fprintf(yyout, "segment .text\nalign 8\n$%s: dq %d\n", p->SUB(0)->value.s, p->SUB(1)->value.i); } 
+instrs: NIL     { fprintf(yyout, "segment .text\nalign 8\nglobal _main:function\n_main:\n"); }
+instrs: INSTRS(instrs, instr)    { /* no code between instructions */ }
+instr: PRINT(strs)  { fprintf(yyout, "\tcall _println\n"); }
+strs: EXPR(strs,str)
+strs: EXPR(strs,expr)  { fprintf(yyout, "\tcall _printi\n\tadd rsp,8\n"); }
+strs: str
+strs: expr
+str: ID isSTR { fprintf(yyout, "\tpush qword $%s\n\tcall _prints\n\tadd rsp,8\n", p->value.s); }
+str: STR { lbl++; fprintf(yyout, "segment .rodata\nalign 8\n_L%d: db '%s', 0\nsegment .text\n\tpush qword $_L%d\n\tcall _prints\n\tadd rsp,8\n", lbl, p->value.s, lbl); }
+expr: ID isINT { fprintf(yyout, "\tpush qword [$%s]\n", p->value.s); }
+expr: INT 1 { fprintf(yyout, "\tpush qword %d\n", p->value.i); }
+expr: ADD(expr, expr) 1 { fprintf(yyout, "\tpop rax\n\tadd [rsp], rax\n"); }
+expr: ADD(expr, INT) 1 { fprintf(yyout, "\tadd [rsp], dword %d\n", p->SUB(1)->value.i); }
+expr: ADD(INT, expr) 1 { fprintf(yyout, "\tadd [rsp], dword %d\n", p->SUB(0)->value.i); }
+expr: ADD(INT, INT) 1 { fprintf(yyout, "\tpush qword %d\n", p->SUB(0)->value.i + p->SUB(1)->value.i); }
+%%

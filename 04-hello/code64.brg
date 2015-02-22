@@ -1,0 +1,13 @@
+%{
+#include <stdio.h>
+#include "node.h"
+static int lbl;
+extern FILE *out;
+%}
+%include "y.tab.h"
+%%
+file: instrs    { fprintf(out, "\tmov rax, 0\n\tret\n"); }
+instrs: NIL     { fprintf(out, "extern printf\nsegment .text\nalign 8\nglobal main:function\nmain:\n"); }
+instrs: INSTRS(instrs, instr)    { /* no code between instructions */ }
+instr: PRINT    { lbl++; fprintf(out, "segment .rodata\nalign 8\n_L%d: db '%s', 10, 0\nsegment .text\n\tmov rax, 0\n\tmov rdi, $_L%d\n\tcall printf\n", lbl,  p->value.s, lbl); }
+%%

@@ -1,0 +1,4 @@
+// missing string double quotes
+{
+  print hello;
+}

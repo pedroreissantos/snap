@@ -1,0 +1,26 @@
+Desenvolvimento de compiladores na prática: com flex, byacc e pburg
+Pedro Reis dos Santos
+Janeiro 2015
+
+Ambiente: linux (32 ou 64 bits)
+Ferramentas: flex, byaac, pburg, gcc, make, nasm.
+
+  Primeiro garanta que tem todas as ferramentas disponíveis e acessíveis no PATH.
+  A distribuição está preparada para 32 bits. Pode usar a distribuição de 32 bits em máquinas de 64 bits, acrescentando as opções '-m32' ao 'gcc' (gcc -m32) e '-m elf_i386' ao 'ld' (ld -m elf_i386), além de continuar a utilizar '-felf32' no 'nasm'.
+  Para utilizar em 64 bits faça 'make x64' no directório principal. Se pretender voltar a 32 bits basta fazer 'make x32'.
+
+  O documento howto.txt contém uma descrição detalhada dos objectivos e ficheiros de cada directório.
+  Siga os directórios por ordem numérica.
+  Cada directório tem uma Makefile, mas nem todas as possibilidades de construção são cobertas pela Makefile.
+  Sugere-se que observe os ficheiros envolvidos e as diferenças para o directório anterior.
+  Os objectivos de cada directório estão assinalados abaixo.
+
+01-hello lex + yacc; syntax only with and without debug; print one string
+02-hello generate nasm-i386 syntax directed with gcc runtime
+03-hello generate gas-arm syntax directed with gcc runtime (use android or GNUarm)
+04-hello burg selection with Node syntax tree
+05-hello declaration of global string variables and print lists of strings (literal and variables)
+06-hello symbol table controls duplicate global ids and missing print variables
+07-add   new integer data type, with declaration of global integers and print of integer sum  expressions
+08-add   optimize 'add' with integer literals, strength-reduce and constant-folding
+09-add   via mnemonics ( compile with -DviaARM or -DviaAMD64 or -DviaI386GAS for other processors )

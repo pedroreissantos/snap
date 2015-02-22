@@ -1,0 +1,4 @@
+// simple hello world example
+{
+  print "hello";
+}
