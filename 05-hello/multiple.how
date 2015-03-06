@@ -1,0 +1,14 @@
+// multiple print example
+{
+  print "multiple";
+
+  print
+  	"hello"
+;
+
+  print "world" ;
+
+
+
+  print"example";
+}

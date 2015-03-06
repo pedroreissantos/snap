@@ -1,0 +1,218 @@
+Compiler development with flex, byacc e pburg
+Pedro Reis dos Santos
+January 2015
+
+Envirnment: linux (32 or 64 bits)
+Tools: flex, byaac, pburg, gcc, make, nasm.
+
+Before you begin, please ensure that all the tools are installed and acessible through the PATH environment variable.
+The distribution is prepared for 32 bit operating systems.
+The 32 bit distribution can be used in a 64 bit environment by adding the options '-m32' to 'gcc' (gg -m32) and '-m elf_i386' to 'ld' (ld -m elf_i386), while using '-felf32' in 'nasm'.
+In order to produce 64 bit code, only usable in 64 bit machines, execute 'make x64' in the main directory. If you want to switch back into the 32 bit compiler do 'make x32'.
+
+The document howto.txt includes a description of the development objectives and file contents of each directory.
+Please follow the numerical order of the directories.
+Each directory includes a Makefile, but not all the development possibilities are covered by the Makefile.
+Look at the files used in each directory as well as the diferences to the previous directory.
+The global objectives of each directory are stated below.
+
+01-hello/ Lexical and sintactical analysis
+  In 01-hello/ we begin the compiler development with a "hello world" language.
+  This language only allow the printing of character string literals.
+
+  The file scan.l includes the lexical specification:
+    lines 1 a 4: nestas lines uncluem-se as declarações necessárias, nomeadamente as definições dos elementos lexicais (tokens) que devem ser passados ao análisador sintáctico. O ficheiro y.tab.h é gerado pelo analisador sintáctico e deve ser incluído no ficheiro scan.l para que também o analisador lexical tenha conhecimento dos tokens necessário. Sempre que o analisador sintáctico alterar os tokens, o analisador lexical deve ser novamente executado para tomar conhecimento das alterações.
+    line 5: separador entre a zona das declarações e a zona da gramática.
+    line 6: expressão regular que reconhece a sequência 'print', utilizada como palavra reservada da linguem. Devolve o token PRINT, declarado como um inteiro positivo no 'y.tab.h', correspondente à palavra reservada.
+    line 7: expressão regular que reconhece uma cadeia de caracteres delimitada por aspas e que pode conter qualquer caracter que não seja uma aspa. Esta definição é semelhantes à da linguagem C mas um pouco mais limitada. O operador '*' indica "zero ou mais repetições" do conjunto delimitado pelo parênteses rectos. O conjunto representa um, e apenas um, caracter que não pertença (o simbolo '^' no início do conjunto representa excepto) aos restantes elementos do conjunto, neste caso apenas a aspa. Notar que a aspa aparece sempre precedida de um barra para trás (ou seja, quoted) pois a aspa é um símbolo especial das expressões regulares, tal como o '*' ou os parênteses rectos ou curvos. Caso se pretenda reconhecer o símbolo '*' no ficheiro de entrada deverá ser quoted '\*' ou delimitado por aspas '"*"'.
+        Quando a sequência é reconhecida, a variável 'yytext' contém os caracteres do ficheiro de entrada que obedecem à expressão regular. Neste caso, terá sempre uma aspa no início e outra no fim, podendo ter zero ou mais caracteres entre as aspas, desde que não sejam aspas. Como os caracteres a imprimir são todos os reconhecidos excepto as aspas, removem-se as aspas. O resultado é salvaguardado, pois o 'yytext' é reutilizado na próxima expressão regular a ser reconhecida, na variável 'yylaval.s' que pertence ao analisador sintáctico e será explicada à frente. Finalmente, como na line anterior, devolve-se o token reconhecido, ou seja uma cadeia de caracteres designada apenas por STR.
+    line 8: nesta line são reconhecidos os caracteres genericamente designados como brancos. Estes caracteres, embora devam ser ignorados, têm a função de funcionar como separadores entre outros tokens. Nesta linguagem são considerados brancos os elementos indicados no conjunto, ou seja o espaço branco ' ', a mudança de line '\n', o retorno do carrecto '\r' e o tabulador horizontal '\t'. A expressão regular reconhece sequências de "um ou mais" (símbolo '+') elementos do conjunto. Como estes devem ser ignorados a acção é uma instrução nula. Notar que o operador '+' poderia ser omitido, sendo o código executado por cada branco encontrado; com o sinal '+' são reconhecidos diversos brancos consecutivos só sendo a acção executada antes de um não branco. Esta abordagem é, consequentemente, um pouco mais eficiente.
+    line 9: os comentários da linguagem são iniciados pela sequência '//' e terminam no fim da line. O símbolo '.' representa qualquer caracter que não a mudança de line, ou seja '[^\n]'. A expressão regular é pois constituída pela sequência de início seguida de zero ou mais caracteres até ao fim da line. Alternativamente o quote poderia ser feito com aspas, ficando '"//".*'. Como a sequência também deve ser ignorada, nenhum token é devolvido ao analisador sintáctico.
+    line 10: todos os restantes caracteres são passados ao analisador lexical. Notar que o '\n' já foi reconhecido na line anterior e a ordem das lines pode ser importante, como veremos mais adiante. Nee caso o token devolvido é o valor do próprio caracter, uma vez que apenas sequências de mais de um caracter necessitam de ser convertidas em token. O analisador sintáctico apenas atribui valores maiores que 255 aos tokens pelo que os caracteres podem ser devolvido pelo seu próprio valor, ou seja um inteiro entre 0 (NULL) e 255 que corresponde a um byte ou 8 bits.
+    line 11: separador entre a zona da gramática e a zona do código auxiliar
+    line 12: função que confirma o fim do processamento. Esta função pode actualizar o ficheiro de leitura 'yyin' e devolver zero sempre que o processamento prossiga num outro ficheiro, por exemplo os includes de C.
+
+  No ficheiro gram.y encontra-se a especificação da análise syntáctica:
+    lines 1 a 5: estas lines, tal como no caso do 'scan.l', incluem-se as declarações necessárias, nomeadamente a variável de contagem de lines no ficheiro de entrada 'yylineno' que é gerida pelo flex e que será utilizada para reportar os erros.
+    line 6: a declaração da union permite passar valores entre o analisador sintáctico e o analisador lexical. São também variáveis deste tipo que são guardados numa pilha auxiliar durante a análise sintáctica, juntamente com os símbolos terminais e não terminais. Neste caso, apenas cadeias de caracteres necessitam ser transferidas sempre que o token STR é reconhecido.
+    line 7: a declaração de um '%token' introduz um novo símbolo terminal, neste caso o token 'PRINT'. Ao processar este ficheiro, vai ser atribuído um número (maior que 255) ao token e a respectiva declaração incluída no ficheiro 'y.tab.h'.
+    line 8: quando o token tem associado um valor, o nome da variável existente na union é incluída na declaração. Neste caso, é declarado o token STR e simultaneamente associado ao campo 's' da union, que foi declarado como um 'char*'. Como se trata de um símbolo terminal, o preenchimento não efectuado pelo analisador sintáctico, sendo devolvido pelo analisador lexical.
+    line 9: %% separador entre a zona das declarações e a zona da gramática.
+    lines 9 e 10: a gramática é constituída por um conjunto de regras que produzem um símbolo não terminal. A construção da gramática consiste em determinar quais os símbolos não terminais e a forma como estes podem ser utilizados para reconhecer a sequência de tokens devolvidos pelo analisador lexical.
+        Neste caso, a primeira regra, que é também o símbolo objectivo da gramática, foi designado de 'file'. Como a linguagem a reconhecer é muito simples, um ficheiro é apenas uma lista de instruções 'instrs' delimitadas por chavetas. O objectivo do analisador é tentar emparelhar as regras utilizando todos os símbolos terminais enviados pelo analisador lexical por forma a produzir o símbolo objectivo da gramática. Se tal não for possível, é gerado um erro e o processo de reconhecimento interrompido.
+    line 11 a 13: o símbolo não terminal 'instrs' utilizado acima é agora definido como zero ou mais 'instr'. A primeira regra está vazia do lado direito, ou seja o lado da produção, reconhecendo 'instrs' quando não existem instruções. A regra seguinte identifica que um 'instrs', possivelemente o anterior vazio, pode ser seguido de um 'instr'. As duas regras estão separadas por um '|' como nas expressões regulares e terminam a definição do não terminal 'instrs' com um ';'
+    lines 14 e 15: a única instrução disponível nesta linguagem inicia-se com o token PRINT, seguido de uma cadeia de caracteres STR e termina com o caracter ';'. Notar que o símbolo não terminal 'instr' podia ser substituído em 'instrs' e eliminado.
+    line 16: %% separador entre a zona da gramática e a zona do código auxiliar
+    line 17: A rotina 'yyerror' é invocada sempre que o analisdor encontra um erro sintáctico, e o argumento é uma cadeia de caracteres, em geral "syntax error". Esta rotina deve ser escrita pelo programador e neste caso imprime a line onde foi detectado o erro e a mensagem recebida.
+    line 19: A rotina 'main' limita-se a invocar o código gerado pelo analisador sintáctico 'yyparse', que por sua vez invoca o analisador lexical 'yylex' quando necessita de mais un token. Como a rotina 'yyparse' devolve zero '0' se não encontrou erros ou um '1' se encontrou erros (tendo chamado a rotina 'yyerror' por cada erro), o mesmo valor pode see utilizado para retornar da rotina 'main'.
+
+    Para gerar este compilador é necessário executar as ferramentas que vão gerar os analisadores lexical 'yylex' no ficheiro 'lex.yy.c' e sintáctico 'yyparse' no ficheiro 'y.tab.c' a partir das especificações acima. A ordem de execução é irrelevante, mas o analisador lexical gerado só pode ser compilado 'gcc' depois de ter sido gerado o analisador sintáctico e produzido o ficheiro 'y.tab.h'.
+        flex -l scan.l
+        byacc -dv gram.y
+        gcc -g lex.yy.c y.tab.c
+
+    Para executar o compilador gerado basta executar o ficheiro gerado 'a.out', redireccionando o ficheiro de exemplo. Como o compoilador ainda não gera código, apenas pode detectar erros no ficheiros de entrada. Dos exemplos fornecidos, apenas 'hello.how' e 'multiple.how' estão correctos e não produzem mensagens.
+        ./a.out < hello.how
+        ./a.out < multiple.how
+    Todos restantes ficheiros incluem erros, sendo o respectivo error reportado pela rotina 'yyerror' anterior.
+    Para determinar se erro está no ficheiro de entrada ou na gramática em desenvolvimento, é possível colocar os analisadores em mode de depuração (debug). No caso do gerador de analisadores lexicais basta incluir a opção '-d', ou seja 'flex -ld scan.l'. O analisador sintáctico necessita de ser compilado com 'YYDEBUG' activo, através de um '#define' na especificação ou de '-DYYDEBUG' durante a compilação, o que activa a variável 'yydebug' que necessita ser colocada a um '1'. O ficheiro 'debug.y' já as alterações necessárias. Embora ambos os analisadores possam ser colocados em modo depuração, aconselha-se a testar primeiro a análise lexical e só depois desta estar funcional testar a análise sintáctica.
+        flex -ld scan.l
+        byacc -dv debug.y
+        gcc -g lex.yy.c y.tab.c
+        ./a.out < wrong.how
+        ./a.out < error.how
+
+02-hello/ Geração de código nasm i386 (ou x86_64)
+    Neste exemplo, começaremos a gerar código máquina. A geração será efectuada dirigida pela sintaxe, pelo que não há necessidade de alterar o 'scan.l'. Para evitar que o código assembly seja impresso no terminal, a rotina 'main' é alterada para processar argumentos, sendo o primeiro o nome do ficheiro de entrada e o segundo o nome do ficheiro de saída. Se o segundo argumento for omitido, será utilizado o ficheiro 'out.asm' (lines 7 e 29). Se o primeiro argumento for omitido, será lido do terminal, como no exemplo anterior. Para que a sequência de entrada seja lida a partir de um ficheiro, e não do terminal, a variável 'yyin' do analisador lexical é atribuída ao ficheiro de entrada a abrir (lines 5 e 25). 
+
+    A geração de código consiste em imprimir código assembly quando a regra é reconhecida. Assim, tal no analisador lexical, o código C é colocado após a regra, mas neste caso as chavetas são obrigatórias. Quando o ficheiro começa a ser analisado, a primeira regra a ser reconhecida é a 'instrs: ', pelo que o código de inicialização é aí colocado. Neste caso, consiste na declaração da etiqueta de início da rotina 'main' na segmento de 'text' (instruçóes executáveis), depois de alineda e declarada global. A rotina 'printf' é declarada como externa pois será utilizada para efectivamente imprimir os caracteres.
+    Cada vez que uma instrução 'print' é reconhecida, a cadeia de caracteres a imprimir é gerada e o seu endereço utilizado na invocação da rotina 'printf'. A cadeia de caracteres é um literal, pelo que é declarada no segmento 'bss' (dados só para leitura). O seu início é referenciado por uma etiqueta gerada automaticamente a partir da variável 'lbl' (lines 6 e 18). No fim da cadeia é colocado o caracter de mudança de line '\n', ou seja 10 em decimal, e terminada com NULL ('\0' ou apenas 0). O valor da cadeia encontra-se subjacente ao símbolo terminal STR, declarado como associado a uma cadeia de caracteres, e é referenciado pela sua posição relativa na regra, neste caso é o segundo símbolo da regra, logo é referido como $2. Para invocar a rotina 'printf' regressa-se ao segmento de texto e coloca-se o argumento da rotina (a posição do início da cadeia) na pilha 'push dword $_L1' (dword são 32 bits, ou seja a dimensão do ponteiro). Depois de invocada a rotina 'call printf', o argumento é retirado da pilha somando (pois a pilha cresce do endereços maiores para os menores) 4 bytes (32 bits) 'add esp, 4', pois em C quem coloca os argumento também é responsável por os remover (o que permite rotinas com número variável de argumentos como o 'printf').
+    Quando o processamento do ficheiro de entrada está concluído, a regra 'file' fica completa e é gerado o código de terminação, que consiste em retornar zero, pois a rotina 'main' devolve um inteiro. O registo de retorno 'eax' é preenchido com o valor zero e a execução da rotina termina com 'ret'.
+
+    Para gerar o compilador procedemos como em 01-hello e executamos um ficheiro de exemplo.
+        flex -l scan.l
+        byacc -dv gram.y
+        gcc -o howto -g lex.yy.c y.tab.c
+        ./howto hello.how
+    O código foi gerado em 'out.asm' que pode agora ser montado e ligado. O processo de montagem (assmbler) consiste em converter as menemónicas respectivos códigos de operação do processador. A ligação (link) consiste em ligar as etquetas ('printf' e '_L1') com os locais onde são chamados. Utilizaremos o assembler nasm que utiliza menemónicas mais legíveis que as do gas (gnu assembler) e é portável para windows. Como a rotina 'printf' pertence à biblioteca de C, utilizaremos o gcc para efectuar a ligação. Mais tarde utilizaremos as nossa próprias rotinas e o gcc será apenas utilizado para gerar o compilador e não para ligar o código dos exemplos gerados pelo compilador em desenvolvimento.
+        nasm -felf out.asm
+        gcc out.o
+    Executando o exemplo produzimos o resultado pretendido
+        ./a.out
+
+03-hello/ Diferenças para outras arquitecuras
+    Neste directório encontam-se diversas variantes do compilador 02-hello, mas para diferentes arquitecturas. O processo é o mesmo, mas o código gerado está escrito em assembly específico.
+    O ficheiros cujo nome terminam em 'gas' geram assembly para o gnu assembler 'gas' em ficheiros com a extensão '.s' e não '.asm'. nestes casos pode-se invocar o assembler à parte
+        as out.s -o out.o
+    e seguidamente usar o gcc para efectuar a ligação, ou utilizar o ambiente de desenvolvimento da gnu para efectuar os processos de montagem e ligação
+        gcc out.s
+    Notar que o ficheiro 'arm.s' gera código para processadores ARM pelo que é necessário um emulador como o GNU-ARM ou uma máquina ARM, como por exemplo o ANDROID.
+
+04-hello/ Selecção de instruçóes por árvore sintáctica
+    A utilização de uma árvore sintáctica e de um selector de instruções permite desligar a ordem de execução do analisador sintáctico do processo de geração de código. Embora isso não seja importante com uma linguagem tão simples, a sua utilidade ficará evidente mais tarde.
+    Nesta abordagem, o analisador sintáctico constroí uma árvore que inlui todos os elementos relevante à geração de código. Assim, além dos comentário e branco eliminados pelo analisador lexical, vão ser também eliminados muitos terminadores e delimitadores.Estes elementos inúteis à geração de código são genericamente designado por "syntactic sugar".
+
+    A árvore que iremos utilizar encontra-se codificada em ../lib/node.c e as respectivas declarações em ../lib/node.h. As folhas da àrvore podem conter informação, como é o caso da cadeia de caracteres. Assim, a rotina 'strNode' cria uma folha da àrvore do tipo PRINT com uma cadeia de caracteres associada. Quando uma folha não tem informação para associar é criado um 'nilNode'. Os ramos da àrvore são criados com a rotina 'subNode' ou versões desta rotina para quando o número de nós é reduzido: 'uniNode' (um ramo), 'binNode' (dois ramos), etc.
+    Como todas as folhas e ramos da àrvore têm de ser identificados, para que o selector os reconheça, são criados dois novos tokens 'NIL' e 'INSTR', que servem para o analisador sintáctico comunicar com o selector de código, não sendo utilizados no analisador lexical.
+    Como os elementos da pilha do analisador sintáctico podem agora conter nós da árvore, tal deve ser declarado na union e nos não terminais que o utilizam '%type<n> NIL INSTR'. Notar que o '%token<s> STR' dos exemplos anteriores pode ser declarado como token '%token STR' e depois tipificado '%type<s> STR'. Uma vez que a union passou a ter um campo do tipo 'Node' e alguns campos desta union são utilizados no analisador lexical, torna-se necessário incluir no ficheiro 'scan.l' o ficheiro 'node.h' antes do 'y.tab.h', pois embora não seja utilizado é necessário para que os campos da union fiquem devidamente tipificados.
+    As rotinas de construção da árvore recebem como argumentos os valores dos símbolos, terminais ou não terminais, da regra consoante a sua posição relativa na regra: $1 para o primeiro, etc. O ramo da árvore que foi criado é associado ao símbolo não terminal à esquerda da regras, designado por $$.
+    Como a árvore é gerada sempre no fim das regras, a sua construção é sempre possível, qualquer que seja a gramática que o analisador consiga gerar.
+    
+    O gerador do selector de instruções 'pburg' gera o selector propriamente dito na rotina 'yyselect', pelo esta deve ser declarada e invocada com a arvore gerada.
+    A especificação da selecção de instruções 'code.brg' começa como nos casos anteriores pela declarações. Notar que o contador de etiquetas 'lbl' foi movido do 'gram.y' para o 'code.brg' pois agora é o selector de instruções que vai gerar o código. A declaração '%include' permite processar os tokens da especificação sintáctica, por forma poderem ser utilizados nos padrões.
+    A gramática é constituída por padrões que representam partes da árvore para as quais existem instruções no processador alvo. Assim, é o processador que determina a gramática e não a árvore. Por exemplo, instruções complexas podem exigir a presença na árvore de um certo padrão de nós. Se este padrão nunca for encontrado a instrução nunca é gerada. Claro que convém ter sempre padrões simples para que exista sempre um padrão capaz de reconhcer qualquer parte da árvore. Neste primeiro exemplo utilizamos um padrão para cada nó da árvore e um padrão para a geração final que dá acesso ao símbolo objectivo da gramática. Notar que os dois últimos padrões podiam se agrupados em 'instrs: INSTRS(instrs,PRINT)' eliminando o não terminal 'instr', em especial porque a penúltima regra não gera código e não existem outras instruções.
+    O nó da árvore reconhecido em cada regra é acedido através da variável 'p', pelo que a string é acedida pelo no campo 's' da filha 'p->value.s', previamente preenchido pela rotina 'strNode'.
+
+    A geração do selector de instruções é efectuada em conjunto com os restantes geradores e o resultado compilado em conjunto com o código da árvore.
+        flex -l scan.l
+        byacc -dv gram.y
+        pburg -T code.brg
+        gcc -o howto -g lex.yy.c y.tab.c yyselect.c ../lib/node.c
+        ./howto hello.how
+    A opção '-T' permite identificar os padrões que vão sendo avaliados pelo selector, funcionando como modo de depuração. A árvore pode também ser impressa antes do 'yyselect($2)' com 'printNode($2,0,0)', ou 'print($2,0,yyname)' se compilado com 'YYDEBUG', onde 'char *yyname[]' substitui os números dos tokens pelo respectivos nomes.
+
+05-hello Listas de strings e utilização de identificadores. Runtime independente do C.
+
+    O passo seguinte consiste em extendendo a linguagem anterior, passando a permitir a declaração de identificadores de strings constantes.
+    Além disso a instrução de impressão passa a permitir imprimir uma lista de strings separadas por vírgulas, sejam as strings literais da linguagem anterior, sejam as strings constantes globais a introduzir na linguagem.
+    Notar que um valor literal é uma constante cujo valor é directamente, ou literalmente, visível.
+    Uma constante é um valor que não pode ser modificado.
+    Logo, um literal é uma constante, mas o contrário pode não ser verdadeiro, como é o caso dos identificadores globais desta linguagem.
+
+    No ficheiro scan.l adiciona-se o reconhecimento do identificador (line 9), constituído por uma letra seguida por zero ou mais letras ou digitos. O token a produzir é designado por ID e seu valor é o nome reconhecido.
+    O separador vírgula e o operador de atribuição são processados como qualquer outro caracter individual (line 12). Notar que qualquer caracter individual é passado ao analisador lexical, sendo responsabilidade deste determinar a sua utilidade na gramática.
+
+    Na gramática, introduz-se as declarações, antes da chaveta que inicia as instruções.
+    Como as declarações (decls) não são obrigatórias, trata-se de uma lista de zero ou mais declaração (decl), utilizando-se para a construção da árvore o token NIL para identificar a ausência de declarações e DECLS para a lista de instruções.
+    Cada declaração (decl) é representada pelo nó '=' da árvore, contendo um ramo com o nome do identificador atribuído e a string literal que lhe corresponde.
+    Como a rotina 'binNode' apenas recebe 'Node*', as duas strings (o identificador e o literal) têm de ser previamente convertidos em folhas do tipo 'Node*'.
+    De forma semelhante, a cadeia de caracteres da linguagem anterior é substituída por uma lista de uma ou mais strings (strs).
+    Notar que como tem de existir pelo menos uma string, a lista tem pelo menos um elemento (line 29), seguida da lista (line 30), semelhante às declatrações mas identificada com o token STRS. 
+    A ausência de acção na line 30 implica o transporte do valor à direita para a esquerda, ou seja '{ $$ = $1; }', e implica que só pode existir um elemento (terminal ou não trrminal) do lado direito da regra
+    A string (str) pode ser um dos identificadores declarados (line 32) ou uma string literal (line 33) tal como na linguagem anterior.
+
+    A geração de código declara a etiqueta '=' da árvore como o símbolo ASSIGN (line 8), uma vez que o pburg não suporta caracteres individuais como símbolos terminais, ao contrário do byacc.
+    A utilização de identificadores para representar strings constantes implica que o código já existente para strings literais (line 20) terá de ser divido em dois, separando a declaração (line 13) da impressão (linhga 19).
+    Neste caso, em vez de gerar uma etiqueta '_L' é utiliza-se o próprio nome da declaração como etiqueta, uma vez que se trata de uma declaração global.
+    Como a mudança de line só é impressa no fim da lista de strings (strs), só quando esta termina e se transforma numa instrução é que se gera a invocação da rotina de mudança de line (println).
+    Também a rotina de impressão de strings passa a ser a rotina prints e a rotina gerada passa a designar-se por _main.
+    Estas rotinas já não fazem parte da biblioteca de C, mas de uma biblioteca de runtime própria (runtime/).
+    A utilização de uma biblioteca de apoio à execução própria permite à linguagem libertar-se do ambiente da linguagem C, embora continue a ser possível invocar rotinar em C, uma vez que o método de chamada é igual.
+    Agora o processo de ligação deixa de ser efectuado pelo gcc para passar a ser efectuado pelo kiner do unix 'ld' (ld -o out out.s ../runtime/librun.a).
+    Para invocar rotinas de C passa a ser necessário adionar a biblioteca de C (libc.a) ao comando (ld -o out out.s ../runtime/librun.a -lc).
+
+    A biblioteca de runtime contém as rotinas que os programas da linguagem podem invocar durante a sua execução, bem como código de iniciação (que arrumas os argumentos de chamada e invoca a rotina _main) e terminação (elimina o processo em execução _exit).
+    A biblioteca de runtime depende do processador, pois está maiotitariamente escrita em assembly, e do sistema operativo, devido à chamadas ao sistema.
+    No directório runtime/ existe um directório para cada sistema actualmente suportado por esta distribuição.
+
+06-hello Utilização da tabela de símbolos para detectar identificadores duplicados e não declarados
+symbol table controls duplicate global ids and missing print variables
+    No directório anterior, quando se pedia para imprimir uma string não declarada ou quando se declaravam duas strings com o mesmo identificador, o compilador não gerava qualquer erro.
+    No entanto, ao executar o assembler eram reportados os erros, sem possibilidade de uma mensagem explicativa ou sequer o número da line no ficheiro fonte.
+    Sugere-se que experimente os exemplo errados existentes no directório anterior
+    A tabela de símbolos permite que o compilador mantenha informação dos identificadores já declarados, permitindo determinar o tipo de operações a gerar (uma soma pode ser de inteiro, reais ou uma concatenação de strings, por exemplo), além poder produzir de mensagens de erro mais explicativas.
+
+    Nestes exemplos será utilizada uma tabela de símbolos simples, declarada em 'tabid.h' existente no directório lib/.
+    Assim, na declaração, o nome do identificador é introduzido numa tabela de símbolos (IDnew), para que posteriormente se conheça os nomes declarados, os respectivos tipos (STR neste caso) e atributos (0 neste caso, pois não existe informação relevante a registar).
+    Esta rotina (IDnew) verifica se já existe algum outro símbolo declarado com o mesmo nome, e invoca a rotina 'yyerror' em casdo de duplicação.
+
+    Para garantir que o identificador a imprimir foi efectivamente declarado, efectua-se uma pesquisa na tabela de símbolos (IDfind).
+    A rotina IDfind procura o símbolo na tabela e caso este não exista invoca a rotina 'yyerror' para reportar o erro.
+    Embora a rotina IDfind devolva o tipo do símbolo encontrado, este é ignorado, de momento, pois se existir terá de ser uma string uma vez que é o único tipo existente na linguagem.
+
+    Para melhor automatizar o processo de construção, a Makefile passa a gerar uma biblioteca de apoio ao desenvolvimento do compilador (libutil.a) e automatiza o processo de geração da biblioteca de runtine (librun.a), bem como o processo de geração dos exemplos (basta fazer 'make ex' para gerar o executável 'ex' a partir do ficheiro 'ex.how', qualquer que seja o nome do exemplo).
+    A biblioteca de apoio ao desenvolvimento inclui a árvore e tabela de símbolos acima referidos, bem como uma rotina 'main' para processamento dos argumento e uma rotina 'yyerror'.
+    A opção '-trace' passa a poder ser utilizada para imprimir a árvore sintáctica antes do processo de selecção.
+    Este código pode ser reutilizado em inúmeros compiladores, pelo que foi colocado numa biblioteca reutilizável.
+
+07-add  Tipo inteiro
+new integer data type, with declaration of global integers and print of integer sum  expressions
+
+    A introdução de um tipo inteiro introduz novos desafios na linguagem.
+    No ficheiro scan.l introduz-se a regra que reconhece literais inteiros decimais (line 10), devolvendo o token INT e preenchendo o campo inteiro '.i'.
+    No ficheiro gram.y, acrescenta-se o campo inteiro '.i' à union (line 12), para receber os literais inteiros, e declara-se o respectivo token INT (line 14).
+    Acrescenta-se a declaração de identificadores inteiros (line 26), com a respectivca inclusão na tabela de símbolos.
+    Nas lines 33 e 34, substitui-se o argumento da instrução 'print' podendo passar a ser uma expressão.
+    A expressão (lines 36 a 40) pode ser constituída por um valor literal (inteiro ou string), pelo valor representado pelo identificador (inteiro ou literal) ou pela soma de duas expressões.
+    Notar que o analisador yacc, que utiliza um lgoritmo LALR(1), não permite criar lista separadas para strings e inteiros, além de obrigar a definir a prioridade do operador soma (line 18).
+    O ficheiro conflict.y pode ser utilizado para identificar os erros de uma tal linguagem.
+
+    Assim, terá de ser o programador a manter o controlo do tipo de expressão que está a ser analisada.
+    Para tal utiliza-se o campo '.info' da árvore sintáctica, registando INT ou STR no caso dos literais, e o tipo guardado na tabela de símbolos (IDfind) e lá previamente colocado na respectiva declaração IDnew).
+    Desta forma, na operação de soma pode-se inspeccionar o tipo de cada argumento e impedir somas que involvam strings.
+
+    Na geração de código é possível separar a geração de expressões inteiras e de strings utilizando custos variáveis.
+    Ao incluir na regra o nome de uma função, em vez de um custo literal inteiro decimal, permite-se que a função decida caso a caso o custo a atribuir à regra.
+    Desta forma, uma regra 'str: ID' tem um custo que é determinado pela rotina isSTR e que devolve 1 caso o identificador seja uma strings e um valor de rejeição BURG_MAX, caso não seja, com base na informação guardada no campo '.info' da árvore.
+    A geraçâo do código para inteiros resume-se à sua declaração (usa 'dd' em vez do 'db' das strings), à rotina de impressão (printi) e ao seu carregamento e soma na pilha do processador.
+
+08-add  Optimização na soma de inteiros literais (strength-reduce and constant-folding)
+
+   Numa linguagem tão simples, poucas operações são possíveis.
+   No entanto a soma permite, desde que o processador suporte a intrução, efectuar duas optimizações simples.
+   Primeiro é necessário garantir que todas as instruções que possam estar envolvidas têm um custo positivo, e idealmente, representativo do verdadeiro custo para o optimizador.
+   Notar que o custo pode refectir o tempo de execução da instrução para optimizar a velocidade de execução, o espaço ocupado pela instrução para reduzir a dimensão do código gerado (para sistemas com pouca memória, ou para que a rotina possa ser colocada na cache do processador na sua totalidade), ou qualquer outro critério que se considere pertinente.
+   O selector de instruções vai seleccionar a sequência de menor custo, sendo os custos omitidos considerados nulos.
+   
+   Assim, pelo menos todas as operações de soma têm um custo unitário.
+   A optimização designada por constant folding, permite que a soma de dois literais inteiros seja feita pelo compilador e o código gerado seja já o resultado dessa soma.
+   O padrão "ADD(INT,INT)" só é seleccionado quando ambos os argumentos da soma são literais, pelo que o valor de cada um já é conhecido, sendo gerada mesma instrução utilizada para literais inteiros, mas desta vez com o resultado da soma.
+
+   A optimização designada por strength-reduce permite utilizar instruções do processador mais eficientes.
+   Neste caso, a soma de um valor com um literal é directamente suportada pela maioria dos processadores.
+   Para tal incluem-se dois padrões ( ADD(expr,INT) e ADD(INT,expr) ) uma vez que a soma é uma operação comutativa.
+   A instrução gerada soma o valor literal com o valor já existente no registo ou na memória (para register-memory machines como o i386), em vez de obrigar a carregar o literal para um registo antes de efectuar a soma.
+
+09-add  Utilização de mnemónicas 'via'
+
+    As mnemónicas 'via' são um conjunto de strings que abstraiem os pormenores do processador, simplificando a geração de código e permitindo gerar código para diferentes processadores com a simples alteração de um 'define' durante a compilação.
+    Como as mnemónicas são genéricas, não são aproveitadas as capacidades específicas de cada processador, apenas as características comuns existentes na maioria dos processadores.
+    A principal limitação reside na não utilização de registos, pois o número de registos varia grandemente, podendo em algumas arquitecturas sem registos (stack-machines como as máquinas virtuais de java e .net).
+    De momento são suportados, além do i386 32-bits com 'nasm', o i386 32-bits com 'as' (gnu assembler - gas) com -DviaI386GAS, o AMD 64-bits com 'nasm' (igualmente processadores Pentium, Atom, etc da Intel) com -DviaAMD64 e o processador ARM 32-bits com 'as' (gas) com -DviaARM.
+    Uma explicação das mnemónicas encontra-se em lib/via.html.
+
+Depois de compreendidos os compiladores apresentados, sugere-se 
+a geração do compilador para a linguagem 'simples'.
+
+Pedro Reis dos Santos
+IST, Fev 2015

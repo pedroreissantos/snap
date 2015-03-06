@@ -1,0 +1,4 @@
+// only one string is allowed in each print
+{
+  print "hello" "world" ;
+}
