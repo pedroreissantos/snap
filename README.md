@@ -1,16 +1,16 @@
-Compiler development with flex, byacc e pburg
+Compiler development with flex, byacc & pburg
 Pedro Reis dos Santos
 January 2015
 
-Envirnment: linux (32 or 64 bits)
-Tools: flex, byaac, pburg, gcc, make, nasm.
+Environment: linux (32 or 64 bits)
+Tools: flex, byacc, pburg, gcc, make, nasm.
 
 Before you begin, please ensure that all the tools are installed and acessible through the PATH environment variable.
 The distribution is prepared for 32 bit operating systems.
 The 32 bit distribution can be used in a 64 bit environment by adding the options '-m32' to 'gcc' (gg -m32) and '-m elf_i386' to 'ld' (ld -m elf_i386), while using '-felf32' in 'nasm'.
 In order to produce 64 bit code, only usable in 64 bit machines, execute 'make x64' in the main directory. If you want to switch back into the 32 bit compiler do 'make x32'.
 
-The document howto.txt includes a description of the development objectives and file contents of each directory.
+The document snap.txt includes a description of the development objectives and file contents of each directory.
 Please follow the numerical order of the directories.
 Each directory includes a Makefile, but not all the development possibilities are covered by the Makefile.
 Look at the files used in each directory as well as the diferences to the previous directory.

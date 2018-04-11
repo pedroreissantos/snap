@@ -1,6 +1,6 @@
 .SUFFIXES: .brg .asm
 
-COMPILER=howto
+COMPILER=snap
 RUNTIME=../runtime/librun.a
 UTIL=../lib/libutil.a
 
@@ -23,11 +23,11 @@ $(RUNTIME):
 	make -C ../runtime install
 .brg.c:
 	$(BURG) $(BFLAGS) $< $@
-%: %.how
-	./howto $<
+%: %.snp
+	./snap $<
 	nasm -felf $*.asm
 	ld $*.o -o $@ ../runtime/librun.a # in linux64 use 'ld -melf_i386' instead of 'ld'
 code.c: gram.c
 scan.c: gram.c
 clean:
-	rm -f y.tab.h y.output howto *.asm *.o scan.c gram.c code.c
+	rm -f y.tab.h y.output snap *.asm *.o scan.c gram.c code.c

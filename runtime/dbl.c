@@ -1,7 +1,6 @@
 /* (C)IST 2005 Pedro Reis dos Santos
- * Este código serve apenas para o compilador da disciplina de Compiladores
- * e não substitui as chamadas da biblioteca de C, pois pode introduzir
- * algum erro adicional nos últimos digitos significativos.
+ * This code is a simplification and does not replace C system calls.
+ * Code can display some imprecision in the last digits.
  */
 
 #ifdef underscore
@@ -139,10 +138,10 @@ char *dtoa(double d, int ndig, char *s)
   s[pos] = 0;
   printf("rem=%g (%s)\n", d, s);
 #endif
-  if (d >= 5) { /* arredondamento simetrico */
+  if (d >= 5) { /* symetric rounding */
     while (s[pos-1] == '9')
       pos--;
-    if (s[pos-1] != '.') /* ver se e' '.' ou ultimo digito */
+    if (s[pos-1] != '.') /* check for '.' or last digit */
       s[pos-1]++;
     else {
       pos--;

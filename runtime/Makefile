@@ -7,6 +7,7 @@ OUT=run.o
 OBJ= boot.o lib.o dbl.o stub.o
 
 all: $(LIB) $(OUT)
+install: $(LIB)
 
 $(LIB): $(OBJ)
 	$(AR) $@ $(OBJ)

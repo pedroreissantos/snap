@@ -9,7 +9,7 @@ Ferramentas: flex, byaac, pburg, gcc, make, nasm.
   A distribuição está preparada para 32 bits. Pode usar a distribuição de 32 bits em máquinas de 64 bits, acrescentando as opções '-m32' ao 'gcc' (gcc -m32) e '-m elf_i386' ao 'ld' (ld -m elf_i386), além de continuar a utilizar '-felf32' no 'nasm'.
   Para utilizar em 64 bits faça 'make x64' no directório principal. Se pretender voltar a 32 bits basta fazer 'make x32'.
 
-  O documento howto.txt contém uma descrição detalhada dos objectivos e ficheiros de cada directório.
+  O documento snap.txt contém uma descrição detalhada dos objectivos e ficheiros de cada directório.
   Siga os directórios por ordem numérica.
   Cada directório tem uma Makefile, mas nem todas as possibilidades de construção são cobertas pela Makefile.
   Sugere-se que observe os ficheiros envolvidos e as diferenças para o directório anterior.

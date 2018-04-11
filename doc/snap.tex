@@ -1,0 +1,99 @@
+\documentclass[a4paper]{article}
+%\usepackage[portuguese]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{epsfig}
+\usepackage{palatino}
+\usepackage{verbatim}
+\usepackage{a4wide}
+\let \psfig=\epsfig
+
+%\newcommand{\ca}{\c c\~a}
+%\newcommand{\co}{\c c\~o}
+%\newcommand{\CA}{\c C\~A}
+%\newcommand{\CO}{\c C\~O}
+%\newcommand{\ii}{\'\i}
+
+\title{Snap: compiler development with lex, yacc and burg}
+\author{Pedro Reis dos Santos}
+\date{April 2018}
+
+\begin{document}
+\maketitle
+
+Compiler development can be fairly simple when compiler generator generators are used. A Generator generator is a tool that generates compiler from a high level specific description and generates the compiler development language, i.e. {\bf C} or {\bf Java} for exemple. The high level description drives a specific generation algorithm that automates the development process.
+
+The generator used in this document all read description files with same structure. The begining of the file contains a declarations section, then a grammar section, and an optional last section of auxiliary development language code. These sections are separated by a {\tt \%\%} on s single line. All generator declarations begin with a {\tt \%} character on the first column.
+
+A compiler is composed of two phases: analysis and synthesis. The analysis phase reads an objective description, a python {\tt .py} file for a {\bf Python} language compiler, and produces an intermediate format. The synthesis phase writes a target description, assembly code for an {\bf\sc ARM} processor.
+
+Each of these phases can then be decomposed into stages.
+The analysis phase can be divided into lexical, syntactical and semantic analysis. From a linguistic point of view there is only syntactic analysis, but in compiler development the process is divided according to the limitations of the syntactic analyser.
+
+The lexical analysis breaks the objective input language into words or {\em tokens}, such as variables, reserved word, operator, {\it etc.} using generators such {\bf lex} or {\bf flex}.
+The syntactic analysis checks wether the {\em tokens} are in the correct order and builds a {\em syntatic tree} structure exposing the dependencies, using generators such as {\bf yacc}, {\bf bison} or {\bf byacc}.
+The semantic analysis ensures that each element in the tree can perform the requested operation, for instance multiply integers and not strings.
+
+The synthesis phase can be divided into instruction selection, instruction scheduling, register allocation, optimization, {\it etc}. However, in this document only instruction selection will be performed. The resulting code is not optimized since basic processor capacities are now used. For instance, only a small number of register will be used and no instrution scheduling or optimization is performed.
+
+The instruction selection compares the {\em syntactic tree} with the available processor instrutions and matches the best instruction for each subtree, using generators such as {\bf burg}, {\bf iburg}, {\bf monoburg}, {\bf wburg} or {\bf pburg}.
+
+In this document we will use {\bf C} as a development language and the {\bf flex}, {\bf byacc} and {\bf pburg} generator generators, respectively for lexical analysis, syntax analysis and code generation. Any semantic analysis is performed in {\bf C}. Nevertheless, the same reasoning can be applied for {\bf Java} as a development language, and tools such as {\bf antlr}, {\bf jflex}, {\bf cup}, {\bf byaccj} or {\bf pburg}.
+
+\section{Development library} % lib/
+
+The first part of compiler development consists on the construction of the compiler itself.
+The development library provides auxiliary development code that can be used in more than one stage of compiler development. The code can be used accross a wide range of compiler developments.
+
+This library, localted in the {\tt lib/} folder, includes the tree code for the construction and manipulation of the {\em syntax tree}, the {\em symbol table} to keep track of user variables and useful auxiliary rotines.
+
+This library should be compiled, by executing {\tt make} in the {\tt lib/} folder, prior to generating any of the subsequent examples.
+
+\section{Runtime support} % runtime/
+
+The second part of the compiler development consists on providing support for programs written on the target language. For instance, in the development of a {\bf Python} compiler we must supply a set library rotines that can be called from the {\bf Python} code. These rotines can be written in the same language as the development language, {\bf C} in the present document.
+
+The runtime support offers bootstrap code to redirect process execution to the target code, code for system calls such as reading printing or other operating system functionalities, as well as specific rotines for the new language being developed.
+
+The {\tt runtime/} folder must be compiler before linking the target example. It is not used for the compiler develpment, only when runing the exemples generated by the target compiler. 
+
+The provided runtime support is based on the {\bf C} language, otherwise assembly bootstrap code should be provided for all major processors and operating systems. In order to keep development simple, the main rotine is called {\tt \_main}, since the name {\tt main} is already taken by the {\bf C} language. Printing is supported through the {\tt prints} (for strings), {\tt printd} (for decimal integers), {\tt printr} (for {\tt float}) and {\tt printd} (for {\tt double}). Reading is offered by the {\bf readb} (for single bytes), {\bf readln} (for lines), {\bf readi}, {\bf readr} and {\bf readd}. Convertion uses the same prefixes and suffixes as in {\bf C}: {\tt atoi}, {\tt atof}, {\tt atod}, {\tt itoa}, {\tt ftoa} and {\tt dtoa}.
+
+If a more complete set of rotines is needed, then the generated examples can by linked against the standard {\bf C} library rotines {\bf libc}, with an explicit {\tt -lc} option at the end of the linking command, followed by any {\bf libc} dependencies. However, some versions of {\bf libc}, such as {\sc GNU} {\bf glibc}, require explicit initialization code in order for some rotine to operate properly.
+
+\section{Program analysis} % 01-hello/
+
+Our first example, located at the {\tt 01-hello/} folder, only performs program analysis. The language is a sequence of zero or more print instructions that can only print literal strings. The language uses the characters `{\tt \{}' and `{\tt \}}' to delimit the program and `{\tt ;}' as an instruction terminator.
+
+The syntactic declaration section must define the {\em tokens}: {\tt PRINT} for the only reserved word and {\tt STR} for a literal string. The literal string requires a value since we must know what character compose it in order to display its contents. Therefore the {\tt \%token} {\tt STR} is defined of the type {\tt s}, where {\tt s} is defined as a {\tt char*} in the {\tt \%union}:
+\begin{verbatim}
+%union { char *s; }
+%token PRINT
+%token<s> STR
+\end{verbatim}
+
+The grammar section decribes the language itself.
+A {\tt file} is a list of instructions ({\tt instrs}) delimited by braces.
+A list of instructions is zero (the empty space between `{\tt :}' and `{\tt |}' ) or more ({\tt instrs}) instructions ({\tt instr}).
+An instruction ({\tt instr}) is the keyword {\tt PRINT} followed by a string literal {\tt STR} terminated by a  `{\tt ;}'.
+\begin{verbatim}
+file: '{' instrs '}' ;
+instrs: | instrs instr ;
+instr: PRINT STR ';' ;
+\end{verbatim}
+
+\section{Direct {\sc INTEL} code generation} % 02-hello/
+
+% 64-bit: register rax instaed of eax; call with edi... instaed of stack
+
+\section{Direct {\sc ARM} code generation} % 03-hello/
+\section{Burg code generation} % 04-hello/
+\section{Introducing variables} % 05-hello/
+\section{Introducing a symbol table} % 06-hello/
+\section{Introducing arithmetic} % 07-add/
+\section{Introducing optimization} % 08-add/
+strength-reduce ADD(INT,expr) ADD(expr,INT) ADD(INT,INT),
+only ADD(INT,INT) in arm
+\section{Introducing postfix code generation} % 09-add/
+
+\end{document}
