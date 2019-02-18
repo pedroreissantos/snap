@@ -25,8 +25,8 @@ $(RUNTIME):
 	$(BURG) $(BFLAGS) $< $@
 %: %.snp
 	./snap $<
-	nasm -felf $*.asm
-	ld $*.o -o $@ ../runtime/librun.a # to use 32-bit code in linux64 use 'ld -melf_i386' instead of 'ld'
+	nasm -felf64 $*.asm
+	gcc $*.o -o $@ ../runtime/librun.a
 code.c: gram.c
 scan.c: gram.c
 clean:

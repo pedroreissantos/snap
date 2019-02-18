@@ -5,7 +5,7 @@ all:
 	gcc -I../lib -o snap lex.yy.c y.tab.c yyselect.c ../lib/node.c
 %: %.snp
 	./snap $<
-	nasm -felf out.asm
+	nasm -felf64 out.asm
 	gcc out.o -o $@
 clean:
 	rm -f lex.yy.c y.tab.h y.tab.c y.output yyselect.c a.out snap out.asm out.o

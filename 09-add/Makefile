@@ -5,7 +5,7 @@ RUNTIME=../runtime/librun.a
 UTIL=../lib/libutil.a
 
 CC=gcc
-CFLAGS=-g -I../lib -DYYDEBUG
+CFLAGS=-g -I../lib -DYYDEBUG -DpfAMD64
 LEX=flex
 LFLAGS=-l
 YACC=byacc
@@ -25,8 +25,8 @@ $(RUNTIME):
 	$(BURG) $(BFLAGS) $< $@
 %: %.snp
 	./snap $<
-	nasm -felf $*.asm
-	ld $*.o -o $@ ../runtime/librun.a # in linux64 use 'ld -melf_i386' instead of 'ld'
+	nasm -felf64 $*.asm
+	gcc $*.o -o $@ ../runtime/librun.a
 code.c: gram.c
 scan.c: gram.c
 clean:

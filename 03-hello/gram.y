@@ -10,12 +10,12 @@ static FILE *out;
 %token PRINT
 %token<s> STR
 %%
-file: '{' instrs '}'    { fprintf(out, "\tmov r0, #0\n\tldmfd sp!, {pc}\n"); }
+file: '{' instrs '}'    { fprintf(out, "\tmovq $0, %%rax\n\tret\n"); }
     ;
-instrs:                 { fprintf(out, ".extern printf\n.section .text\n.align 2\n.global main\n.type main, %%function\nmain:\n\tstmfd sp!, {lr}\n"); }
+instrs:                 { fprintf(out, ".extern printf\n.section .text\n.align 8\n.global main\n.type main, %%function\nmain:\n"); }
       | instrs instr    { /* no code between instructions */ }
       ;
-instr: PRINT STR ';'    { lbl++; fprintf(out, ".section .rodata\n.align 2\n_L%d: .ascii \"%s\"\n\t.asciz \"\\n\"\n.section .text\n\tldr r0, =_L%d\n\tbl printf\n", lbl, $2, lbl); }
+instr: PRINT STR ';'    { lbl++; fprintf(out, ".section .rodata\n.align 8\n_L%d:\t.ascii \"%s\"\n\t.byte 10\n\t.byte 0\n.section .text\n\tmovq $0, %%rax\n\tmovq $_L%d, %%rdi\n\tcall printf\n", lbl, $2, lbl); }
      ;
 %%
 int yyerror(char *s) { fprintf(stderr, "%d: %s\n", yylineno, s); return 0; }
