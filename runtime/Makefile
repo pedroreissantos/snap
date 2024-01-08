@@ -1,4 +1,4 @@
-AR=ar crl
+AR=ar crv
 LD=ld -r -o
 #LD=ld -melf_i386 -r -o
 CFLAGS=-g -Dunderscore # -fno-stack-protector # quando __stack_chk_fail em Ubunto
